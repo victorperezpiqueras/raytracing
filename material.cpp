@@ -57,7 +57,7 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 	float VdotN, ratio = 0.0;
 	bool isTrans;
 	///a
-	glm::vec3 N = shadInfo.normal;
+	glm::vec3 N = glm::normalize(shadInfo.normal);
 	
 	V = -shadInfo.rayDir;
 	VdotN = glm::dot(V, shadInfo.normal);
@@ -179,10 +179,24 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 	//todo saber si la N de L·N en transmision es la misma que la del rayo principal o al salir es otra N
 	if (shadInfo.depth < shadInfo.pWorld->maxDepth) {
 		if (!isTrans) {
+			//V=
+			//R utiliza ahora en vez del rayo de luz i, el rayo del punto de vista
+			R = 2 * VdotN * N - V;
 			color += Kr * shadInfo.pWorld->Trace(shadInfo.point, R, shadInfo.depth + 1);
 		}
 		if (isTrans) {
-			//color += Kt * shadInfo.pWorld->Trace(shadInfo.point, T, shadInfo.depth + 1);
+			float b, cos, rad;
+			//cos = glm::dot(-V, -N);//ya está hecho para que sea el negativo
+			cos = VdotN;
+			
+			rad = 1 + pow(ratio, 2) * (pow(cos, 2) - 1);
+			if (rad >= 0) {
+				b = ratio * cos - sqrt(rad);//todo
+				T = glm::normalize((ratio * -V) + b * (-N));//todo
+			}
+			else T = V;
+
+			color += Kt * shadInfo.pWorld->Trace(shadInfo.point, T, shadInfo.depth + 1);
 		}//TODO funciona a medias el transparente-> le falta reflejar el rayo bien
 		// la T va a haber que cambiarla porque los rayos son distintos segun la practica
 	}
