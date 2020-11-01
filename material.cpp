@@ -58,7 +58,7 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 	bool isTrans;
 	///a
 	glm::vec3 N = glm::normalize(shadInfo.normal);
-	
+
 	V = -shadInfo.rayDir;
 	VdotN = glm::dot(V, shadInfo.normal);
 	isTrans = (Kt != glm::vec3(0.0, 0.0, 0.0));
@@ -84,33 +84,6 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 
 	// To do ...
 
-	//LOCAL:
-	// ------Reflexion luz ambiental:
-	// Ia=Ka·Ila->coeficiente reflexion luz ambiental
-	// ------Reflexion difusa:
-	// Id=
-	//if dot(L,N)>0 -> Kd·Ilid·dot(L,N)
-	// else 0
-	// ------Reflexion especular:
-	// Is=
-	//if dot(L,N)>0 ->Ks·Ils·dot(R,V)^n
-	// else 0
-	//Ks->coeficiente reflexion especular
-	//n->exponente reflexion especular
-	//R->2(L·N)N-L
-	//GLOBAL:
-	//I=Ilocal+Kr·Ir+Kt·It
-	//Kr->Coeficiente reflexion (espec) global
-	//Kt->Coeficiente transmision (espec) global
-	//Ilocal->
-	//Idt=
-	//if dot(L,N)<0 ->Kdt·Ild ·(dot(L,-N))
-	// else 0
-	//Ist=
-	//if dot(L,N)<0 ->Kst·Ils ·(dot(T,V))^n
-	// else 0
-
-	//CODIGO:
 	glm::vec3 Ilocal = glm::vec3(0.0, 0.0, 0.0);
 
 	glm::vec3 Ia = glm::vec3(0.0, 0.0, 0.0);
@@ -144,9 +117,10 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 		if (LdotN > 0) {
 			//reflexion difusa
 			Id += Kd * light->Id * LdotN;
-
+			shadInfo.pWorld->numReflRays++;
 			//reflexion especular
 			Is += Ks * light->Is * pow((glm::dot(R, Vobs)), n);
+			shadInfo.pWorld->numReflRays++;
 		}
 
 		//transmision--------------------------------------------------------------
@@ -154,7 +128,7 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 			//transmision difusa
 			Idt += Kdt * light->Id * glm::dot(L, -N);//ya se cambia el signo a la normal
 			//Idt += Kdt * light->Id * glm::dot(L, shadInfo.normal);
-
+			shadInfo.pWorld->numRefrRays++;
 			//transmision especular
 			float b, cos, rad;
 			//coseno del angulo con vectores normalizados==dot->L y N
@@ -164,39 +138,45 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 			rad = 1 + pow(ratio, 2) * (pow(cos, 2) - 1);
 			if (rad >= 0) {
 				b = ratio * cos - sqrt(rad);//todo
-				T = glm::normalize((ratio * -L) + b * (-N));//todo
+				T = glm::normalize((ratio * (-L)) + b * (-N));//todo
 				Ist += Kst * light->Is * pow((glm::dot(T, Vobs)), n);//todo
+				shadInfo.pWorld->numRefrRays++;
 			}
 		}
-		//ningún otro cuerpo se interpone entre la luz y la superficie??? T4-d59
-		Ilocal += Ia + Id + Is /*+ Idt + Ist*/;
-		
+		//TODO ningún otro cuerpo se interpone entre la luz y la superficie??? T4-d59
+		//ver si habria que poner oscuras las partes que no entran en los ifs o con solamente no sumarlas ya estaria
+		Ilocal += Ia + Id + Is + Idt + Ist;
+
 		light = shadInfo.pWorld->lights.Next();
 	}
 	color += Ilocal;
 
 	/* Iluminación global */
-	//todo saber si la N de L·N en transmision es la misma que la del rayo principal o al salir es otra N
 	if (shadInfo.depth < shadInfo.pWorld->maxDepth) {
 		if (!isTrans) {
 			//V=
 			//R utiliza ahora en vez del rayo de luz i, el rayo del punto de vista
 			R = 2 * VdotN * N - V;
 			color += Kr * shadInfo.pWorld->Trace(shadInfo.point, R, shadInfo.depth + 1);
+			shadInfo.pWorld->numReflRays++;
 		}
 		if (isTrans) {
 			float b, cos, rad;
-			//cos = glm::dot(-V, -N);//ya está hecho para que sea el negativo
-			cos = VdotN;
-			
+			cos = glm::dot(-V, -N);//ya está hecho para que sea el negativo
+			//cos = VdotN;
+
 			rad = 1 + pow(ratio, 2) * (pow(cos, 2) - 1);
 			if (rad >= 0) {
-				b = ratio * cos - sqrt(rad);//todo
-				T = glm::normalize((ratio * -V) + b * (-N));//todo
+				b = ratio * cos - sqrt(rad);
+				T = glm::normalize((ratio * (-V)) + b * (-N));
+				shadInfo.pWorld->numRefrRays++;
 			}
-			else T = V;
-
+			else {
+				T = V;
+				shadInfo.pWorld->numReflRays++;
+			}
 			color += Kt * shadInfo.pWorld->Trace(shadInfo.point, T, shadInfo.depth + 1);
+
 		}//TODO funciona a medias el transparente-> le falta reflejar el rayo bien
 		// la T va a haber que cambiarla porque los rayos son distintos segun la practica
 	}
