@@ -101,9 +101,10 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 
 	Light* light = shadInfo.pWorld->lights.First();
 	while (light != NULL) {
-	/* Iluminación local */
+		/* Iluminación local */
 		// para cada punto de luz i->calcular su Li·N
-		L = glm::normalize(light->position - shadInfo.point);
+		L = light->position - shadInfo.point;
+		L = glm::normalize(L);
 		//L = V;
 		LdotN = glm::dot(L, N);
 		//reflexion ambiental
@@ -111,8 +112,10 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 
 		//(especular)
 		R = 2 * LdotN * N - L;
+		R = glm::normalize(R);
 		//AB= B-A
-		Vobs = glm::normalize(shadInfo.pWorld->eye - shadInfo.point);
+		Vobs = shadInfo.pWorld->eye - shadInfo.point;
+		Vobs = glm::normalize(Vobs);
 
 		if (LdotN > 0) {
 			//reflexion difusa
@@ -138,7 +141,8 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 			rad = 1 + pow(ratio, 2) * (pow(cos, 2) - 1);
 			if (rad >= 0) {
 				b = ratio * cos - sqrt(rad);//todo
-				T = glm::normalize((ratio * (-L)) + b * (-N));//todo
+				T = (ratio * (-L)) + b * (-N);//todo
+				T = glm::normalize(T);
 				Ist += Kst * light->Is * pow((glm::dot(T, Vobs)), n);//todo
 				shadInfo.pWorld->numRefrRays++;
 			}
@@ -157,6 +161,7 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 			//V=
 			//R utiliza ahora en vez del rayo de luz i, el rayo del punto de vista
 			R = 2 * VdotN * N - V;
+			R = glm::normalize(R);
 			color += Kr * shadInfo.pWorld->Trace(shadInfo.point, R, shadInfo.depth + 1);
 			shadInfo.pWorld->numReflRays++;
 		}
@@ -168,11 +173,13 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 			rad = 1 + pow(ratio, 2) * (pow(cos, 2) - 1);
 			if (rad >= 0) {
 				b = ratio * cos - sqrt(rad);
-				T = glm::normalize((ratio * (-V)) + b * (-N));
+				T = (ratio * (-V)) + b * (-N);
+				T = glm::normalize(T);
 				shadInfo.pWorld->numRefrRays++;
 			}
 			else {
 				T = V;
+				T = glm::normalize(T);
 				shadInfo.pWorld->numReflRays++;
 			}
 			color += Kt * shadInfo.pWorld->Trace(shadInfo.point, T, shadInfo.depth + 1);
