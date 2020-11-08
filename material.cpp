@@ -93,28 +93,30 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 
 	Light* light = shadInfo.pWorld->lights.First();
 	while (light != NULL) {
+		//resetear variables
 		Ia = glm::vec3(0.0, 0.0, 0.0);
 		Id = glm::vec3(0.0, 0.0, 0.0);
 		Is = glm::vec3(0.0, 0.0, 0.0);
 		Idt = glm::vec3(0.0, 0.0, 0.0);
 		Ist = glm::vec3(0.0, 0.0, 0.0);
 
+		//vector L de sombra
 		L = light->position - shadInfo.point;
 		L = glm::normalize(L);
 		LdotN = glm::dot(L, shadInfo.normal);
 		shadInfo.pWorld->numShadRays++;
 
-		// calcular si algun cuerpo se interpone entre la luz y la superficie
-		float shade, tnear = shadInfo.t, tmax = TFAR;
+		//obtener reduccion de intensidad por objetos que tapan la luz
 		glm::vec3 lightReduction = glm::vec3(1.0, 1.0, 1.0);
-		Object* nearObj = NULL;
-		nearObj = shadInfo.pWorld->objects.NearestInt(shadInfo.point, L, tnear, tmax);
-		//obtener coeficiente de transparencia del objeto que intersecte el rayo de luz para reducir la intensidad de esa luz
-		if (nearObj) {
-			shade = true;
-			lightReduction = nearObj->pMaterial->Kt;
+		Object* nearObj = shadInfo.pWorld->objects.First();
+		float taux;
+		while (nearObj != NULL) {
+			taux = nearObj->NearestInt(shadInfo.point, L);
+			if (taux > TMIN) {
+				lightReduction *= nearObj->pMaterial->Kt;
+			}
+			nearObj = shadInfo.pWorld->objects.Next();
 		}
-		else shade = false;
 
 		////////////* ILUMINACION LOCAL *//////////////////////////////////
 
@@ -155,7 +157,11 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 			Ist = Kst * light->Is * pow((glm::dot(T, V)), n);
 		}
 
-		Ilocal += Ia + lightReduction * (Id + Is + Idt + Ist);
+		Ilocal += Ia + Id + Is + Idt + Ist;
+
+		//aplicar reduccion de intensidad por objetos que tapan la luz
+		Ilocal *= lightReduction;
+
 		light = shadInfo.pWorld->lights.Next();
 	}
 	Ilocal += Ie;
