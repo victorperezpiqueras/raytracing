@@ -105,13 +105,16 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 		shadInfo.pWorld->numShadRays++;
 
 		// calcular si algun cuerpo se interpone entre la luz y la superficie
-		float sombra, tnear, tmax;
-		tnear = shadInfo.t;
-		tmax = TFAR;
+		float shade, tnear = shadInfo.t, tmax = TFAR;
+		glm::vec3 lightReduction = glm::vec3(1.0, 1.0, 1.0);
 		Object* nearObj = NULL;
-		/* Find nearest object in the direction of the ray */
 		nearObj = shadInfo.pWorld->objects.NearestInt(shadInfo.point, L, tnear, tmax);
-		(nearObj) ? sombra = true : sombra = false;
+		//obtener coeficiente de transparencia del objeto que intersecte el rayo de luz para reducir la intensidad de esa luz
+		if (nearObj) {
+			shade = true;
+			lightReduction = nearObj->pMaterial->Kt;
+		}
+		else shade = false;
 
 		////////////* ILUMINACION LOCAL *//////////////////////////////////
 
@@ -120,7 +123,7 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 		////////////* Reflexion ambiental *//////
 		Ia = Ka * light->Ia;
 
-		if (LdotN > 0 && !sombra) {
+		if (LdotN > 0) {
 			////////////* Reflexión difusa *//////
 			Id = Kd * light->Id * LdotN;
 
@@ -131,7 +134,7 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 		}
 
 		////////////* Transmision */////////////
-		if (LdotN < 0 && !sombra) {
+		if (LdotN < 0) {
 			////////////* Transmision difusa *//////
 			//Idt += Kdt * light->Id * LdotN; // es la normal inversa, porque solo la cambia al principio en funcion de la direccion de V, no de L
 			Idt = Kdt * light->Id * glm::dot(L, -shadInfo.normal);
@@ -152,7 +155,7 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 			Ist = Kst * light->Is * pow((glm::dot(T, V)), n);
 		}
 
-		Ilocal += (Ia + Id + Is + Idt + Ist);
+		Ilocal += Ia + lightReduction * (Id + Is + Idt + Ist);
 		light = shadInfo.pWorld->lights.Next();
 	}
 	Ilocal += Ie;
