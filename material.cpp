@@ -125,43 +125,39 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 		////////////* Reflexion ambiental *//////
 		Ia = Ka * light->Ia;
 
-		if (LdotN > 0) {
+		if (LdotN > 0.0) {
 			////////////* Reflexión difusa *//////
 			Id = Kd * light->Id * LdotN;
 
 			////////////* Reflexión especular *//////
 			R = 2 * LdotN * shadInfo.normal - L;
 			R = glm::normalize(R);
-			Is = Ks * light->Is * pow((glm::dot(R, V)), n);
+			if (glm::dot(R, V) > 0.0)
+				Is = Ks * light->Is * pow((glm::dot(R, V)), n);
 		}
 
 		////////////* Transmision */////////////
-		if (LdotN < 0) {
+		if (LdotN < 0.0) {
 			////////////* Transmision difusa *//////
-			//Idt += Kdt * light->Id * LdotN; // es la normal inversa, porque solo la cambia al principio en funcion de la direccion de V, no de L
-			Idt = Kdt * light->Id * glm::dot(L, -shadInfo.normal);
+			if (glm::dot(L, -shadInfo.normal) > 0.0)
+				Idt = Kdt * light->Id * glm::dot(L, -shadInfo.normal);
 
 			////////////* Transmision especular *//////
-			float b = 0.0, cos, rad;
-			//coseno del angulo con vectores normalizados==dot->L y N
-			cos = LdotN;
-			//cos = glm::dot(-L, -N);
-			rad = 1 + (ratio * ratio) * ((cos * cos) - 1);
+			float b = 0.0, cos = LdotN, rad;
+			rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
 			//comprobar que la raiz es positiva
-			if (rad >= 0) {
+			if (rad >= 0.0) {
 				b = ratio * cos - sqrt(rad);
 			}
 			T = (ratio * (L)) + b * (shadInfo.normal);
-			//T = (ratio * (-L)) + b * (-N);
 			T = glm::normalize(T);
-			Ist = Kst * light->Is * pow((glm::dot(T, V)), n);
+			//no manchas
+			if (glm::dot(T, V) > 0.0)
+				Ist = Kst * light->Is * pow((glm::dot(T, V)), n);
+
 		}
-
-		Ilocal += Ia + Id + Is + Idt + Ist;
-
 		//aplicar reduccion de intensidad por objetos que tapan la luz
-		Ilocal *= lightReduction;
-
+		Ilocal += Ia + lightReduction * (Id + Is + Idt + Ist);
 		light = shadInfo.pWorld->lights.Next();
 	}
 	Ilocal += Ie;
@@ -182,15 +178,13 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 		////////////* Transmision */////////////
 		if (isTrans) {
 			float b = 0.0, cos, rad;
-			//cos = glm::dot(-V, -N);//ya está hecho para que sea el negativo
 			cos = VdotN;
 
-			rad = 1 + (ratio * ratio) * ((cos * cos) - 1);
-			if (rad >= 0) {
+			rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
+			if (rad >= 0.0) {
 				b = ratio * cos - sqrt(rad);
 			}
 			T = (ratio * (-V)) + b * (shadInfo.normal);
-			//T = (ratio * (-V)) + b * (-N);
 			T = glm::normalize(T);
 			It = Kt * shadInfo.pWorld->Trace(shadInfo.point, T, shadInfo.depth + 1);
 			color += It;
