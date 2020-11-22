@@ -56,15 +56,12 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 	glm::vec3 color(0.0, 0.0, 0.0), V;
 	float VdotN, ratio = 0.0;
 	bool isTrans, isSpec;
-	///a
-	//glm::vec3 N = glm::normalize(shadInfo.normal);
 
 	V = -shadInfo.rayDir;
 	VdotN = glm::dot(V, shadInfo.normal);
 	isTrans = (Kt != glm::vec3(0.0, 0.0, 0.0));
 	isSpec = (Ks != glm::vec3(0.0, 0.0, 0.0)) || (Kst != glm::vec3(0.0, 0.0, 0.0));
 	if (VdotN < 0) {
-
 		// The viewer stares at an interior or back face of the object,
 		// we will only illuminate it if material is transparent
 		if (isTrans) {
@@ -108,56 +105,96 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 
 		//obtener reduccion de intensidad por objetos que tapan la luz
 		glm::vec3 lightReduction = glm::vec3(1.0, 1.0, 1.0);
-		Object* nearObj = shadInfo.pWorld->objects.First();
-		float taux;
-		while (nearObj != NULL) {
-			taux = nearObj->NearestInt(shadInfo.point, L);
-			if (taux > TMIN) {
-				lightReduction *= nearObj->pMaterial->Kt;
+
+		float t = TMIN;///////////--------
+		//Object* objectIntersect = shadInfo.pWorld->objects.NearestInt(shadInfo.point, L, t, shadInfo.t);///////////--------
+		//if (objectIntersect != NULL) {///////////--------
+			Object* nearObj = shadInfo.pWorld->objects.First();
+			float taux;
+			while (nearObj != NULL) {
+				taux = nearObj->NearestInt(shadInfo.point, L);
+				if (taux > TMIN /*&& taux <= shadInfo.t*/) {///////////--------
+					if (nearObj->pMaterial->Kt == glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+						lightReduction = glm::vec3(0.0, 0.0, 0.0);///////////--------
+						break;///////////--------
+					}
+					lightReduction *= nearObj->pMaterial->Kt;
+				}
+				nearObj = shadInfo.pWorld->objects.Next();
 			}
-			nearObj = shadInfo.pWorld->objects.Next();
-		}
+		//}///////////--------
+
 
 		////////////* ILUMINACION LOCAL *//////////////////////////////////
 
 		////////////* Reflexion */////////////
 
 		////////////* Reflexion ambiental *//////
-		Ia = Ka * light->Ia;
+		//Ia = Ka * light->Ia;
+		Ia = light->Ia;///////////--------
 
 		if (LdotN > 0.0) {
 			////////////* Reflexión difusa *//////
-			Id = Kd * light->Id * LdotN;
+			//Id = Kd * light->Id * LdotN;
+			if (Kd != glm::vec3(0.0, 0.0, 0.0))Id = light->Id * LdotN;///////////--------
 
 			////////////* Reflexión especular *//////
-			R = 2 * LdotN * shadInfo.normal - L;
+			/*R = 2 * LdotN * shadInfo.normal - L;
 			R = glm::normalize(R);
 			if (glm::dot(R, V) > 0.0)
-				Is = Ks * light->Is * pow((glm::dot(R, V)), n);
+				Is = Ks * light->Is * pow((glm::dot(R, V)), n);*/
+			if (Ks != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+				R = 2 * LdotN * shadInfo.normal - L;
+				R = glm::normalize(R);
+				if (glm::dot(R, V) > 0.0)
+					Is = light->Is * pow((glm::dot(R, V)), n);///////////--------
+			}
+
 		}
 
 		////////////* Transmision */////////////
 		if (LdotN < 0.0) {
 			////////////* Transmision difusa *//////
-			if (glm::dot(L, -shadInfo.normal) > 0.0)
-				Idt = Kdt * light->Id * glm::dot(L, -shadInfo.normal);
+			/*if (glm::dot(L, -shadInfo.normal) > 0.0)
+				Idt = Kdt * light->Id * glm::dot(L, -shadInfo.normal);*/
+
+			if (Kdt != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+				if (glm::dot(L, -shadInfo.normal) > 0.0)
+					Idt = light->Id * glm::dot(L, -shadInfo.normal);///////////--------
+			}
 
 			////////////* Transmision especular *//////
-			float b = 0.0, cos = LdotN, rad;
-			rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
-			//comprobar que la raiz es positiva
-			if (rad >= 0.0) {
-				b = ratio * cos - sqrt(rad);
-			}
-			T = (ratio * (L)) + b * (shadInfo.normal);
-			T = glm::normalize(T);
-			//no manchas
-			if (glm::dot(T, V) > 0.0)
-				Ist = Kst * light->Is * pow((glm::dot(T, V)), n);
+			//float b = 0.0, cos = LdotN, rad;
+			//rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
+			////comprobar que la raiz es positiva
+			//if (rad >= 0.0) {
+			//	b = ratio * cos - sqrt(rad);
+			//}
+			//T = (ratio * (L)) + b * (shadInfo.normal);
+			//T = glm::normalize(T);
+			////no manchas
+			//if (glm::dot(T, V) > 0.0)
+			//	Ist = Kst * light->Is * pow((glm::dot(T, V)), n);
+
+			if (Kst != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+				float b = 0.0, cos = LdotN, rad;
+				rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
+				//comprobar que la raiz es positiva
+				if (rad >= 0.0) {
+					b = ratio * cos - sqrt(rad);
+				}
+				T = (ratio * (L)) + b * (shadInfo.normal);
+				T = glm::normalize(T);
+				//no manchas
+				if (glm::dot(T, V) > 0.0)
+					Ist = light->Is * pow((glm::dot(T, V)), n);
+			}///////////--------
 
 		}
 		//aplicar reduccion de intensidad por objetos que tapan la luz
-		Ilocal += Ia + lightReduction * (Id + Is + Idt + Ist);
+		//Ilocal += Ia + lightReduction * (Id + Is + Idt + Ist);
+		Ilocal += (Ka * Ia) + lightReduction * ((Kd * Id) + (Ks * Is) + (Kdt * Idt) + (Kst * Ist));///////////--------
+
 		light = shadInfo.pWorld->lights.Next();
 	}
 	Ilocal += Ie;
@@ -169,15 +206,24 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 		////////////* Reflexion */////////////
 		if (isSpec) {
 			//R utiliza ahora el rayo del punto de vista en vez del rayo de luz i, 
-			R = 2 * VdotN * shadInfo.normal - V;
+			/*R = 2 * VdotN * shadInfo.normal - V;
 			R = glm::normalize(R);
 			Ir = Kr * shadInfo.pWorld->Trace(shadInfo.point, R, shadInfo.depth + 1);
 			color += Ir;
 			shadInfo.pWorld->numReflRays++;
+			*/
+			if (Kr != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+				R = 2 * VdotN * shadInfo.normal - V;
+				R = glm::normalize(R);
+				Ir = Kr * shadInfo.pWorld->Trace(shadInfo.point, R, shadInfo.depth + 1);
+				color += Ir;
+
+			}shadInfo.pWorld->numReflRays++;
+			///////////--------
 		}
 		////////////* Transmision */////////////
 		if (isTrans) {
-			float b = 0.0, cos, rad;
+			/*float b = 0.0, cos, rad;
 			cos = VdotN;
 
 			rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
@@ -188,7 +234,20 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 			T = glm::normalize(T);
 			It = Kt * shadInfo.pWorld->Trace(shadInfo.point, T, shadInfo.depth + 1);
 			color += It;
-			shadInfo.pWorld->numRefrRays++;
+			shadInfo.pWorld->numRefrRays++;*/
+
+			if (Kt != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+				float b = 0.0, cos = VdotN, rad;
+				rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
+				if (rad >= 0.0) {
+					b = ratio * cos - sqrt(rad);
+				}
+				T = (ratio * (-V)) + b * (shadInfo.normal);
+				T = glm::normalize(T);
+				It = Kt * shadInfo.pWorld->Trace(shadInfo.point, T, shadInfo.depth + 1);
+				color += It;
+				shadInfo.pWorld->numRefrRays++;
+			}///////////--------
 		}
 	}
 
