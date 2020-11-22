@@ -106,23 +106,20 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 		//obtener reduccion de intensidad por objetos que tapan la luz
 		glm::vec3 lightReduction = glm::vec3(1.0, 1.0, 1.0);
 
-		float t = TMIN;///////////--------
-		//Object* objectIntersect = shadInfo.pWorld->objects.NearestInt(shadInfo.point, L, t, shadInfo.t);///////////--------
-		//if (objectIntersect != NULL) {///////////--------
-			Object* nearObj = shadInfo.pWorld->objects.First();
-			float taux;
-			while (nearObj != NULL) {
-				taux = nearObj->NearestInt(shadInfo.point, L);
-				if (taux > TMIN /*&& taux <= shadInfo.t*/) {///////////--------
-					if (nearObj->pMaterial->Kt == glm::vec3(0.0, 0.0, 0.0)) {///////////--------
-						lightReduction = glm::vec3(0.0, 0.0, 0.0);///////////--------
-						break;///////////--------
-					}
-					lightReduction *= nearObj->pMaterial->Kt;
+		float t = TMIN;
+		Object* nearObj = shadInfo.pWorld->objects.First();
+		float taux;
+		while (nearObj != NULL) {
+			taux = nearObj->NearestInt(shadInfo.point, L);
+			if (taux > TMIN) {
+				if (nearObj->pMaterial->Kt == glm::vec3(0.0, 0.0, 0.0)) {
+					lightReduction = glm::vec3(0.0, 0.0, 0.0);
+					break;
 				}
-				nearObj = shadInfo.pWorld->objects.Next();
+				lightReduction *= nearObj->pMaterial->Kt;
 			}
-		//}///////////--------
+			nearObj = shadInfo.pWorld->objects.Next();
+		}
 
 
 		////////////* ILUMINACION LOCAL *//////////////////////////////////
@@ -130,53 +127,31 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 		////////////* Reflexion */////////////
 
 		////////////* Reflexion ambiental *//////
-		//Ia = Ka * light->Ia;
-		Ia = light->Ia;///////////--------
+		Ia = light->Ia;
 
 		if (LdotN > 0.0) {
 			////////////* Reflexión difusa *//////
-			//Id = Kd * light->Id * LdotN;
-			if (Kd != glm::vec3(0.0, 0.0, 0.0))Id = light->Id * LdotN;///////////--------
+			if (Kd != glm::vec3(0.0, 0.0, 0.0))Id = light->Id * LdotN;
 
 			////////////* Reflexión especular *//////
-			/*R = 2 * LdotN * shadInfo.normal - L;
-			R = glm::normalize(R);
-			if (glm::dot(R, V) > 0.0)
-				Is = Ks * light->Is * pow((glm::dot(R, V)), n);*/
-			if (Ks != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+			if (Ks != glm::vec3(0.0, 0.0, 0.0)) {
 				R = 2 * LdotN * shadInfo.normal - L;
 				R = glm::normalize(R);
 				if (glm::dot(R, V) > 0.0)
-					Is = light->Is * pow((glm::dot(R, V)), n);///////////--------
+					Is = light->Is * pow((glm::dot(R, V)), n);
 			}
-
 		}
 
 		////////////* Transmision */////////////
 		if (LdotN < 0.0) {
 			////////////* Transmision difusa *//////
-			/*if (glm::dot(L, -shadInfo.normal) > 0.0)
-				Idt = Kdt * light->Id * glm::dot(L, -shadInfo.normal);*/
-
-			if (Kdt != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+			if (Kdt != glm::vec3(0.0, 0.0, 0.0)) {
 				if (glm::dot(L, -shadInfo.normal) > 0.0)
-					Idt = light->Id * glm::dot(L, -shadInfo.normal);///////////--------
+					Idt = light->Id * glm::dot(L, -shadInfo.normal);
 			}
 
 			////////////* Transmision especular *//////
-			//float b = 0.0, cos = LdotN, rad;
-			//rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
-			////comprobar que la raiz es positiva
-			//if (rad >= 0.0) {
-			//	b = ratio * cos - sqrt(rad);
-			//}
-			//T = (ratio * (L)) + b * (shadInfo.normal);
-			//T = glm::normalize(T);
-			////no manchas
-			//if (glm::dot(T, V) > 0.0)
-			//	Ist = Kst * light->Is * pow((glm::dot(T, V)), n);
-
-			if (Kst != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+			if (Kst != glm::vec3(0.0, 0.0, 0.0)) {
 				float b = 0.0, cos = LdotN, rad;
 				rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
 				//comprobar que la raiz es positiva
@@ -185,15 +160,14 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 				}
 				T = (ratio * (L)) + b * (shadInfo.normal);
 				T = glm::normalize(T);
-				//no manchas
+				//comprobar producto escalar mayor que cero
 				if (glm::dot(T, V) > 0.0)
 					Ist = light->Is * pow((glm::dot(T, V)), n);
-			}///////////--------
+			}
 
 		}
 		//aplicar reduccion de intensidad por objetos que tapan la luz
-		//Ilocal += Ia + lightReduction * (Id + Is + Idt + Ist);
-		Ilocal += (Ka * Ia) + lightReduction * ((Kd * Id) + (Ks * Is) + (Kdt * Idt) + (Kst * Ist));///////////--------
+		Ilocal += (Ka * Ia) + lightReduction * ((Kd * Id) + (Ks * Is) + (Kdt * Idt) + (Kst * Ist));
 
 		light = shadInfo.pWorld->lights.Next();
 	}
@@ -205,38 +179,17 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 	if (shadInfo.depth < shadInfo.pWorld->maxDepth) {
 		////////////* Reflexion */////////////
 		if (isSpec) {
-			//R utiliza ahora el rayo del punto de vista en vez del rayo de luz i, 
-			/*R = 2 * VdotN * shadInfo.normal - V;
-			R = glm::normalize(R);
-			Ir = Kr * shadInfo.pWorld->Trace(shadInfo.point, R, shadInfo.depth + 1);
-			color += Ir;
-			shadInfo.pWorld->numReflRays++;
-			*/
-			if (Kr != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+			if (Kr != glm::vec3(0.0, 0.0, 0.0)) {
 				R = 2 * VdotN * shadInfo.normal - V;
 				R = glm::normalize(R);
 				Ir = Kr * shadInfo.pWorld->Trace(shadInfo.point, R, shadInfo.depth + 1);
 				color += Ir;
-
-			}shadInfo.pWorld->numReflRays++;
-			///////////--------
+				shadInfo.pWorld->numReflRays++;
+			}
 		}
 		////////////* Transmision */////////////
 		if (isTrans) {
-			/*float b = 0.0, cos, rad;
-			cos = VdotN;
-
-			rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
-			if (rad >= 0.0) {
-				b = ratio * cos - sqrt(rad);
-			}
-			T = (ratio * (-V)) + b * (shadInfo.normal);
-			T = glm::normalize(T);
-			It = Kt * shadInfo.pWorld->Trace(shadInfo.point, T, shadInfo.depth + 1);
-			color += It;
-			shadInfo.pWorld->numRefrRays++;*/
-
-			if (Kt != glm::vec3(0.0, 0.0, 0.0)) {///////////--------
+			if (Kt != glm::vec3(0.0, 0.0, 0.0)) {
 				float b = 0.0, cos = VdotN, rad;
 				rad = 1.0 + (pow(ratio, 2)) * ((pow(cos, 2)) - 1.0);
 				if (rad >= 0.0) {
@@ -247,7 +200,7 @@ glm::vec3 Material::Shade(ShadingInfo& shadInfo)
 				It = Kt * shadInfo.pWorld->Trace(shadInfo.point, T, shadInfo.depth + 1);
 				color += It;
 				shadInfo.pWorld->numRefrRays++;
-			}///////////--------
+			}
 		}
 	}
 
